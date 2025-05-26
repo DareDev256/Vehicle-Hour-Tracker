@@ -58,7 +58,7 @@ def display_photos(photo_string):
             with cols[i % 4]:
                 try:
                     image = Image.open(os.path.join('photos', photo_file))
-                    st.image(image, caption=f"Photo {i+1}", use_column_width=True)
+                    st.image(image, caption=f"Photo {i+1}", use_container_width=True)
                 except Exception:
                     st.caption(f"📸 Photo {i+1}")
 
@@ -129,17 +129,25 @@ def main():
     
     conn = st.session_state.db_conn
     
-    # Navigation tabs
-    tab1, tab2, tab3 = st.tabs(["🏠 Dashboard", "📝 New Entry", "📋 View Log"])
-    
-    with tab1:
-        show_dashboard(conn)
-    
-    with tab2:
+    # Check for Quick Action redirects
+    if st.session_state.current_view == 'new_entry':
         show_new_entry(conn)
-    
-    with tab3:
+        st.session_state.current_view = 'dashboard'  # Reset
+    elif st.session_state.current_view == 'view_log':
         show_log(conn)
+        st.session_state.current_view = 'dashboard'  # Reset
+    else:
+        # Normal tab navigation
+        tab1, tab2, tab3 = st.tabs(["🏠 Dashboard", "📝 New Entry", "📋 View Log"])
+        
+        with tab1:
+            show_dashboard(conn)
+        
+        with tab2:
+            show_new_entry(conn)
+        
+        with tab3:
+            show_log(conn)
 
 def show_dashboard(conn):
     """Enhanced dashboard with working Quick Actions"""
@@ -195,13 +203,15 @@ def show_dashboard(conn):
     
     with col1:
         if st.button("🚗 Start New Entry", use_container_width=True, type="primary", key="quick_new"):
-            st.success("✅ Switching to New Entry tab!")
-            st.info("👆 Click the 'New Entry' tab above to add a detailing record")
+            st.session_state.current_view = "new_entry"
+            st.success("✅ Redirecting to New Entry!")
+            st.rerun()
     
     with col2:
         if st.button("📋 View All Entries", use_container_width=True, key="quick_view"):
-            st.success("✅ Switching to View Log!")
-            st.info("👆 Click the 'View Log' tab above to see all entries")
+            st.session_state.current_view = "view_log"  
+            st.success("✅ Redirecting to View Log!")
+            st.rerun()
     
     with col3:
         # Export functionality
@@ -365,7 +375,7 @@ def show_new_entry(conn):
                     try:
                         image = Image.open(uploaded_file)
                         image.thumbnail((200, 200))
-                        st.image(image, caption=f"Photo {i+1}", use_column_width=True)
+                        st.image(image, caption=f"Photo {i+1}", use_container_width=True)
                     except Exception:
                         st.caption(f"📸 Photo {i+1}")
         
