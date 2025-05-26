@@ -150,10 +150,10 @@ def show_dashboard(conn):
                     st.write(f"{entry[3]}")  # Advisor Name
                 
                 with col3:
-                    st.write(f"{entry[5]}")  # Date (adjusted index)
+                    st.write(f"{entry[5]}")  # Date
                 
                 with col4:
-                    hours_color = "🔴" if entry[4] > 3 else "⏱️"  # Hours (adjusted index)
+                    hours_color = "🔴" if float(entry[4]) > 3 else "⏱️"  # Hours
                     st.write(f"{hours_color} {entry[4]}h")
                 
                 st.divider()
@@ -234,7 +234,7 @@ def show_log(conn):
     
     if entries:
         # Stats
-        total_hours = sum(entry[5] for entry in entries)
+        total_hours = sum(float(entry[4]) for entry in entries)  # Hours are at index 4
         avg_hours = total_hours / len(entries) if entries else 0
         
         col1, col2, col3 = st.columns(3)
@@ -280,10 +280,10 @@ def show_log(conn):
                 st.write(f"{entry[3]}")  # Advisor/Detailer Name
             
             with col4:
-                st.write(f"{entry[5]}")  # Date (adjusted index)
+                st.write(f"{entry[5]}")  # Date
             
             with col5:
-                hours_indicator = "🔴" if entry[4] > 3 else "⏱️"  # Hours (adjusted index)
+                hours_indicator = "🔴" if float(entry[4]) > 3 else "⏱️"  # Hours
                 st.write(f"{hours_indicator} {entry[4]}h")
             
             with col6:
