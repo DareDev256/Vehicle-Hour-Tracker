@@ -2,9 +2,10 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime, date
+import os
 
+# Database functions
 def init_db():
-    """Initialize SQLite database"""
     conn = sqlite3.connect('detailing.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute('''
@@ -23,6 +24,52 @@ def init_db():
     conn.commit()
     return conn
 
+def add_entry(conn, license_plate, detail_type, advisor, location, hours, entry_date, notes=""):
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO entries (license_plate, detail_type, advisor, location, hours, entry_date, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (license_plate.upper().strip(), detail_type, advisor.strip(), location, hours, entry_date, notes.strip()))
+    conn.commit()
+    return True
+
+def get_entries(conn, limit=50):
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM entries 
+        ORDER BY entry_date DESC, created_at DESC 
+        LIMIT ?
+    ''', (limit,))
+    return cursor.fetchall()
+
+def get_stats(conn):
+    cursor = conn.cursor()
+    
+    # Total entries
+    cursor.execute("SELECT COUNT(*) FROM entries")
+    total = cursor.fetchone()[0]
+    
+    # Total hours
+    cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM entries")
+    total_hours = cursor.fetchone()[0]
+    
+    # Today's entries
+    today = date.today().strftime('%Y-%m-%d')
+    cursor.execute("SELECT COUNT(*) FROM entries WHERE entry_date = ?", (today,))
+    today_count = cursor.fetchone()[0]
+    
+    # Today's hours
+    cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM entries WHERE entry_date = ?", (today,))
+    today_hours = cursor.fetchone()[0]
+    
+    return {
+        'total': total,
+        'total_hours': round(total_hours, 1),
+        'today': today_count,
+        'today_hours': round(today_hours, 1)
+    }
+
+# Main app
 def main():
     st.set_page_config(
         page_title="Auto Detailing Tracker",
@@ -44,7 +91,7 @@ def main():
     
     conn = st.session_state.db_conn
     
-    # Navigation
+    # Navigation tabs
     tab1, tab2, tab3 = st.tabs(["🏠 Dashboard", "📝 New Entry", "📋 View Log"])
     
     with tab1:
@@ -57,43 +104,28 @@ def main():
         show_log(conn)
 
 def show_dashboard(conn):
-    """Show dashboard with stats and recent entries"""
-    cursor = conn.cursor()
+    stats = get_stats(conn)
     
-    # Get stats
-    cursor.execute("SELECT COUNT(*) FROM entries")
-    total = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM entries")
-    total_hours = cursor.fetchone()[0]
-    
-    today = date.today().strftime('%Y-%m-%d')
-    cursor.execute("SELECT COUNT(*) FROM entries WHERE entry_date = ?", (today,))
-    today_count = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM entries WHERE entry_date = ?", (today,))
-    today_hours = cursor.fetchone()[0]
-    
-    # Display stats
+    # Today's progress
     st.markdown(f"""
     <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #2563eb; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 1rem 0; color: #374151;">Today's Progress</h3>
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center;">
             <div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: #2563eb;">{today_count}</div>
-                <div style="font-size: 0.875rem; color: #6b7280;">Cars Today</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #2563eb;">{stats['today']}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Cars</div>
             </div>
             <div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: #059669;">{today_hours:.1f}</div>
-                <div style="font-size: 0.875rem; color: #6b7280;">Hours Today</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #059669;">{stats['today_hours']}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Hours</div>
             </div>
             <div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: #dc2626;">{total}</div>
-                <div style="font-size: 0.875rem; color: #6b7280;">Total Entries</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #dc2626;">{stats['total']}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Total</div>
             </div>
             <div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: #7c3aed;">{total_hours:.1f}</div>
-                <div style="font-size: 0.875rem; color: #6b7280;">Total Hours</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #7c3aed;">{stats['total_hours']}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">All Hours</div>
             </div>
         </div>
     </div>
@@ -103,18 +135,18 @@ def show_dashboard(conn):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("**🚗 Quick New Entry**")
-        st.write("Click the New Entry tab to add a detailing record")
+        if st.button("🚗 Quick New Entry", use_container_width=True, type="primary"):
+            st.session_state.active_tab = "new_entry"
+            st.rerun()
     
     with col2:
-        st.markdown("**📋 View Full Log**")
-        st.write("Click the View Log tab to see all entries")
+        if st.button("📋 View Full Log", use_container_width=True):
+            st.session_state.active_tab = "view_log"
+            st.rerun()
     
     with col3:
-        st.markdown("**📊 Export Data**")
-        cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC")
-        entries = cursor.fetchall()
-        if entries:
+        entries = get_entries(conn, 1000)
+        if entries and st.button("📊 Export Data", use_container_width=True):
             df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created'])
             csv = df.to_csv(index=False)
             st.download_button(
@@ -124,13 +156,10 @@ def show_dashboard(conn):
                 "text/csv",
                 use_container_width=True
             )
-        else:
-            st.write("No data to export yet")
     
     # Recent entries
     st.subheader("Recent Entries")
-    cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC, created_at DESC LIMIT 5")
-    entries = cursor.fetchall()
+    entries = get_entries(conn, 5)
     
     if entries:
         for entry in entries:
@@ -141,10 +170,10 @@ def show_dashboard(conn):
                     <div style="flex: 1;">
                         <div style="font-weight: 600; font-size: 1rem;">{entry[1]}</div>
                         <div style="color: #6b7280; font-size: 0.875rem;">{entry[2]} • {entry[3]}</div>
-                        <div style="color: #9ca3af; font-size: 0.75rem;">{entry[6]} • {entry[4]}</div>
                     </div>
                     <div style="text-align: right;">
                         <div style="font-weight: bold; color: {hours_color};">{entry[5]}h</div>
+                        <div style="color: #6b7280; font-size: 0.75rem;">{entry[4]}</div>
                     </div>
                 </div>
             </div>
@@ -153,12 +182,11 @@ def show_dashboard(conn):
         st.info("No entries yet. Add your first entry to get started!")
 
 def show_new_entry(conn):
-    """Show new entry form"""
     st.header("Add New Entry")
     
     st.info("💡 Common notes: Pet hair removal, Extra polish needed, Heavy cleaning required, Minor touch-up, Leather conditioning, Paint correction")
     
-    with st.form("new_entry_form"):
+    with st.form("new_entry"):
         license_plate = st.text_input("License Plate *", placeholder="ABC-123")
         
         detail_type = st.selectbox("Detail Type *", [
@@ -200,43 +228,33 @@ def show_new_entry(conn):
             st.error("❌ Hours must be greater than 0")
         else:
             try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT INTO entries (license_plate, detail_type, advisor, location, hours, entry_date, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (license_plate.upper().strip(), detail_type, advisor.strip(), location, hours, str(entry_date), notes.strip()))
-                conn.commit()
-                
-                st.success(f"✅ Entry added successfully for {license_plate.upper()}")
-                st.balloons()
-                st.rerun()
+                success = add_entry(conn, license_plate, detail_type, advisor, location, hours, str(entry_date), notes)
+                if success:
+                    st.success(f"✅ Entry added successfully for {license_plate.upper()}")
+                    st.balloons()
+                    st.rerun()
             except Exception as e:
-                st.error(f"❌ Error adding entry: {e}")
+                st.error(f"❌ Error: {e}")
 
 def show_log(conn):
-    """Show all entries log"""
     st.header("Entry Log")
     
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC, created_at DESC")
-    entries = cursor.fetchall()
+    entries = get_entries(conn, 100)
     
     if entries:
-        # Stats
-        total_hours = sum(entry[5] for entry in entries)
-        avg_hours = total_hours / len(entries) if entries else 0
+        stats = get_stats(conn)
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Entries", len(entries))
+            st.metric("Total Entries", stats['total'])
         with col2:
-            st.metric("Total Hours", f"{total_hours:.1f}h")
+            st.metric("Total Hours", f"{stats['total_hours']}h")
         with col3:
+            avg_hours = stats['total_hours'] / max(stats['total'], 1)
             st.metric("Average Hours", f"{avg_hours:.1f}h")
         
         st.divider()
         
-        # Display entries
         for entry in entries:
             hours_color = "#dc2626" if entry[5] > 3 else "#374151"
             notes_text = f'<div style="color: #4b5563; font-size: 0.75rem; margin-top: 0.25rem; font-style: italic;">{entry[7][:100]}{"..." if len(entry[7] or "") > 100 else ""}</div>' if entry[7] else ''
@@ -258,17 +276,17 @@ def show_log(conn):
             </div>
             """, unsafe_allow_html=True)
         
-        # Export option
         st.divider()
-        df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created'])
-        csv = df.to_csv(index=False)
-        st.download_button(
-            "📥 Export All Entries to CSV",
-            csv,
-            f"detailing_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            "text/csv",
-            use_container_width=True
-        )
+        if st.button("📥 Export All Entries", use_container_width=True):
+            df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created'])
+            csv = df.to_csv(index=False)
+            st.download_button(
+                "📁 Download CSV File",
+                csv,
+                f"detailing_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                "text/csv",
+                use_container_width=True
+            )
     else:
         st.info("No entries found. Add your first entry to get started!")
 
