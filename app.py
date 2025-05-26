@@ -174,8 +174,22 @@ def main():
     
     conn = st.session_state.db_conn
     
+    # Initialize active tab state
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = 'dashboard'
+    
     # Enhanced navigation with icons
     tab1, tab2, tab3 = st.tabs(["🏠 Dashboard", "📝 New Entry", "📋 View Log"])
+    
+    # Handle tab switching based on button clicks
+    if st.session_state.active_tab == 'new_entry':
+        st.session_state.active_tab = 'dashboard'  # Reset after handling
+        tab2_selected = True
+    elif st.session_state.active_tab == 'view_log':
+        st.session_state.active_tab = 'dashboard'  # Reset after handling
+        tab3_selected = True
+    else:
+        tab1_selected = True
     
     with tab1:
         show_dashboard(conn)
@@ -239,22 +253,28 @@ def show_dashboard(conn):
     
     with col1:
         if st.button("🚗 Start New Entry", use_container_width=True, type="primary"):
-            st.switch_page("New Entry")
+            st.session_state.active_tab = "new_entry"
+            st.rerun()
     
     with col2:
         if st.button("📋 View All Entries", use_container_width=True):
-            st.switch_page("View Log")
+            st.session_state.active_tab = "view_log"
+            st.rerun()
     
     with col3:
         # Enhanced export with data check
         cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC")
         entries = cursor.fetchall()
         if entries:
-            # Create enhanced DataFrame
+            # Create DataFrame with proper column handling
             df = pd.DataFrame(entries)
-            df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Photos', 'Created']
-            # Remove photos column for CSV export
-            export_df = df.drop('Photos', axis=1)
+            # Handle both old and new schema
+            if len(df.columns) == 9:
+                df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Photos', 'Created']
+                export_df = df.drop('Photos', axis=1)
+            else:
+                df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created']
+                export_df = df
             csv = export_df.to_csv(index=False)
             
             st.download_button(
@@ -571,10 +591,14 @@ def show_log(conn):
         col_export1, col_export2 = st.columns(2)
         
         with col_export1:
-            # Basic CSV export
+            # Basic CSV export with proper column handling
             df = pd.DataFrame(entries)
-            df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Photos', 'Created']
-            export_df = df.drop('Photos', axis=1)  # Remove photos for CSV
+            if len(df.columns) == 9:
+                df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Photos', 'Created']
+                export_df = df.drop('Photos', axis=1)
+            else:
+                df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created']
+                export_df = df
             csv = export_df.to_csv(index=False)
             
             st.download_button(
