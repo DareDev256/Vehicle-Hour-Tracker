@@ -189,33 +189,9 @@ def show_main_dashboard_page(db):
 def show_new_entry_page(db):
     st.header("🚗 New Detail Entry")
     
-    # Quick notes section (outside form)
+    # Quick notes info (static display to avoid form conflicts)
     st.markdown("### Quick Notes")
-    quick_notes = [
-        "Pet hair removal", "Extra polish needed", "Heavy cleaning required",
-        "Minor touch-up", "Leather conditioning", "Paint correction"
-    ]
-    
-    # Initialize notes in session state
-    if 'current_notes' not in st.session_state:
-        st.session_state.current_notes = ""
-    
-    # Show current notes if any
-    if st.session_state.current_notes:
-        st.info(f"Added notes: {st.session_state.current_notes}")
-        if st.button("Clear Notes"):
-            st.session_state.current_notes = ""
-            st.rerun()
-    
-    cols = st.columns(3)
-    for i, note in enumerate(quick_notes):
-        with cols[i % 3]:
-            if st.button(f"+ {note}", key=f"note_{i}", use_container_width=True):
-                if st.session_state.current_notes:
-                    st.session_state.current_notes += f"{note}. "
-                else:
-                    st.session_state.current_notes = f"{note}. "
-                st.rerun()
+    st.info("💡 Add common notes like: Pet hair removal, Extra polish needed, Heavy cleaning required, Minor touch-up, Leather conditioning, Paint correction")
     
     # Create form with better styling
     with st.form("new_entry_form", clear_on_submit=True):
@@ -294,7 +270,6 @@ def show_new_entry_page(db):
         
         notes = st.text_area(
             "Additional Notes",
-            value=st.session_state.current_notes,
             placeholder="Additional details, issues, or special instructions...",
             help="Optional notes about the detailing service",
             height=100
@@ -304,13 +279,10 @@ def show_new_entry_page(db):
         submitted = st.form_submit_button("➕ Add Entry", use_container_width=True, type="primary")
         
         if submitted:
-            # Update session notes with form value
-            st.session_state.current_notes = notes
-            
             # Validate form data
-            if not license_plate:
+            if not license_plate or not license_plate.strip():
                 show_error_message("License plate is required.")
-            elif not advisor:
+            elif not advisor or not advisor.strip():
                 show_error_message("Advisor name is required.")
             elif hours <= 0:
                 show_error_message("Hours must be greater than 0.")
@@ -318,26 +290,24 @@ def show_new_entry_page(db):
                 try:
                     # Add entry to database
                     success = db.add_entry(
-                        license_plate=license_plate,
+                        license_plate=license_plate.strip(),
                         detail_type=detail_type,
-                        advisor=advisor,
+                        advisor=advisor.strip(),
                         location=location,
                         hours=hours,
                         entry_date=str(entry_date),
-                        notes=notes
+                        notes=notes.strip() if notes else ""
                     )
                     
                     if success:
                         show_success_message(f"Entry added successfully for {license_plate.upper()}")
-                        # Clear notes after successful submission
-                        st.session_state.current_notes = ""
                         st.balloons()
                         st.rerun()  # Refresh to show new entry
                     else:
-                        show_error_message("Failed to add entry. Please try again.")
+                        show_error_message("Failed to add entry. Please check your database connection.")
                 except Exception as e:
-                    show_error_message(f"Database error: {str(e)}")
-                    st.error("Please check your database connection.")
+                    show_error_message(f"Database connection error: {str(e)}")
+                    st.info("💡 Tip: Make sure your database is properly configured and accessible.")
 
 def show_dashboard_page(db):
     st.header("Dashboard Overview")

@@ -13,12 +13,19 @@ class DetailingDatabase:
     def __init__(self):
         """Initialize the database connection and create tables if they don't exist."""
         self.db_url = os.getenv('DATABASE_URL')
+        if not self.db_url:
+            logger.error("DATABASE_URL environment variable is not set")
+            raise ValueError("DATABASE_URL environment variable is not set")
         self.init_database()
     
     def get_connection(self):
         """Get a database connection with proper settings."""
-        conn = psycopg2.connect(self.db_url)
-        return conn
+        try:
+            conn = psycopg2.connect(self.db_url)
+            return conn
+        except psycopg2.Error as e:
+            logger.error(f"Failed to connect to database: {e}")
+            raise
     
     def init_database(self):
         """Create the database tables if they don't exist."""
@@ -149,22 +156,24 @@ class DetailingDatabase:
                 
                 # Total entries
                 cursor.execute("SELECT COUNT(*) FROM detailing_entries")
-                total_entries = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                total_entries = result[0] if result else 0
                 
                 # Total hours
-                cursor.execute("SELECT SUM(hours) FROM detailing_entries")
+                cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM detailing_entries")
                 result = cursor.fetchone()
-                total_hours = float(result[0]) if result[0] else 0
+                total_hours = float(result[0]) if result else 0
                 
                 # Today's entries
                 today = datetime.now().strftime('%Y-%m-%d')
                 cursor.execute("SELECT COUNT(*) FROM detailing_entries WHERE entry_date = %s", (today,))
-                today_entries = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                today_entries = result[0] if result else 0
                 
                 # Today's hours
-                cursor.execute("SELECT SUM(hours) FROM detailing_entries WHERE entry_date = %s", (today,))
+                cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM detailing_entries WHERE entry_date = %s", (today,))
                 result = cursor.fetchone()
-                today_hours = float(result[0]) if result[0] else 0
+                today_hours = float(result[0]) if result else 0
                 
                 # Most common detail type
                 cursor.execute("""
