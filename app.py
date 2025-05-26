@@ -71,6 +71,20 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # Check if we need to switch tabs from dashboard buttons
+    if 'active_tab' in st.session_state:
+        if st.session_state.active_tab == "new_entry":
+            default_tab = 1
+        elif st.session_state.active_tab == "view_log":
+            default_tab = 2
+        else:
+            default_tab = 0
+        # Clear the session state after using it
+        if 'active_tab' in st.session_state:
+            del st.session_state.active_tab
+    else:
+        default_tab = 0
+    
     # Navigation tabs (horizontal instead of sidebar)
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🏠 Main Dashboard", "📝 New Entry", "📋 View Log", "🔍 Search", "📊 Reports"
@@ -126,15 +140,27 @@ def show_main_dashboard_page(db):
     
     with col1:
         if st.button("🚗 Quick New Entry", use_container_width=True, type="primary"):
-            pass
+            st.session_state.active_tab = "new_entry"
+            st.rerun()
     
     with col2:
         if st.button("📋 View Full Log", use_container_width=True):
-            pass
+            st.session_state.active_tab = "view_log"
+            st.rerun()
     
     with col3:
         if st.button("📊 Export Data", use_container_width=True):
-            pass
+            entries = db.get_recent_entries(limit=1000)
+            if entries:
+                df = convert_entries_to_dataframe(entries)
+                csv_data = export_to_csv(df)
+                st.download_button(
+                    label="📁 Download CSV File",
+                    data=csv_data,
+                    file_name=f"detailing_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
     
     # Recent entries section (matching wireframe style)
     st.subheader("Recent Entries")
@@ -163,16 +189,23 @@ def show_main_dashboard_page(db):
 def show_new_entry_page(db):
     st.header("🚗 New Detail Entry")
     
-    # Quick notes section (outside form - matching wireframe)
+    # Quick notes section (outside form)
     st.markdown("### Quick Notes")
     quick_notes = [
         "Pet hair removal", "Extra polish needed", "Heavy cleaning required",
         "Minor touch-up", "Leather conditioning", "Paint correction"
     ]
     
-    # Initialize notes in session state if not exists
+    # Initialize notes in session state
     if 'current_notes' not in st.session_state:
         st.session_state.current_notes = ""
+    
+    # Show current notes if any
+    if st.session_state.current_notes:
+        st.info(f"Added notes: {st.session_state.current_notes}")
+        if st.button("Clear Notes"):
+            st.session_state.current_notes = ""
+            st.rerun()
     
     cols = st.columns(3)
     for i, note in enumerate(quick_notes):
@@ -268,11 +301,7 @@ def show_new_entry_page(db):
         )
         
         # Action buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            cancel = st.form_submit_button("Cancel", use_container_width=True)
-        with col2:
-            submitted = st.form_submit_button("➕ Add Entry", use_container_width=True, type="primary")
+        submitted = st.form_submit_button("➕ Add Entry", use_container_width=True, type="primary")
         
         if submitted:
             # Update session notes with form value
@@ -303,10 +332,6 @@ def show_new_entry_page(db):
                     st.balloons()
                 else:
                     show_error_message("Failed to add entry. Please try again.")
-        
-        if cancel:
-            # Clear notes on cancel
-            st.session_state.current_notes = ""
 
 def show_dashboard_page(db):
     st.header("Dashboard Overview")
