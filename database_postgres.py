@@ -1,4 +1,5 @@
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import os
 from datetime import datetime
 from typing import List, Dict
@@ -9,18 +10,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DetailingDatabase:
-    def __init__(self, db_path: str = "detailing_tracker.db"):
+    def __init__(self):
         """Initialize the database connection and create tables if they don't exist."""
-        self.db_path = db_path
+        self.db_url = os.getenv('DATABASE_URL')
+        if not self.db_url:
+            logger.error("DATABASE_URL environment variable is not set")
+            raise ValueError("DATABASE_URL environment variable is not set")
         self.init_database()
     
     def get_connection(self):
         """Get a database connection with proper settings."""
         try:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            conn.row_factory = sqlite3.Row  # Enable column access by name
+            conn = psycopg2.connect(self.db_url)
             return conn
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Failed to connect to database: {e}")
             raise
     
@@ -33,12 +36,12 @@ class DetailingDatabase:
                 # Create detailing entries table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS detailing_entries (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        license_plate TEXT NOT NULL,
-                        detail_type TEXT NOT NULL,
-                        advisor TEXT NOT NULL,
-                        location TEXT NOT NULL,
-                        hours REAL NOT NULL,
+                        id SERIAL PRIMARY KEY,
+                        license_plate VARCHAR(20) NOT NULL,
+                        detail_type VARCHAR(100) NOT NULL,
+                        advisor VARCHAR(100) NOT NULL,
+                        location VARCHAR(100) NOT NULL,
+                        hours DECIMAL(5,2) NOT NULL,
                         entry_date DATE NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         notes TEXT
@@ -57,9 +60,9 @@ class DetailingDatabase:
                 """)
                 
                 conn.commit()
-                logger.info("SQLite database initialized successfully")
+                logger.info("Database initialized successfully")
                 
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Error initializing database: {e}")
             raise
     
@@ -73,7 +76,7 @@ class DetailingDatabase:
                 cursor.execute("""
                     INSERT INTO detailing_entries 
                     (license_plate, detail_type, advisor, location, hours, entry_date, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (license_plate.upper().strip(), detail_type, advisor.strip(), 
                       location, hours, entry_date, notes.strip()))
                 
@@ -81,7 +84,7 @@ class DetailingDatabase:
                 logger.info(f"Added entry for license plate: {license_plate}")
                 return True
                 
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Error adding entry: {e}")
             return False
     
@@ -89,20 +92,19 @@ class DetailingDatabase:
         """Get recent detailing entries, ordered by date (most recent first)."""
         try:
             with self.get_connection() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                 
                 cursor.execute("""
                     SELECT id, license_plate, detail_type, advisor, location, 
                            hours, entry_date, created_at, notes
                     FROM detailing_entries 
                     ORDER BY entry_date DESC, created_at DESC
-                    LIMIT ?
+                    LIMIT %s
                 """, (limit,))
                 
-                rows = cursor.fetchall()
-                return [dict(row) for row in rows]
+                return [dict(row) for row in cursor.fetchall()]
                 
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Error fetching recent entries: {e}")
             return []
     
@@ -110,20 +112,19 @@ class DetailingDatabase:
         """Get entries within a specific date range."""
         try:
             with self.get_connection() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                 
                 cursor.execute("""
                     SELECT id, license_plate, detail_type, advisor, location, 
                            hours, entry_date, created_at, notes
                     FROM detailing_entries 
-                    WHERE entry_date BETWEEN ? AND ?
+                    WHERE entry_date BETWEEN %s AND %s
                     ORDER BY entry_date DESC, created_at DESC
                 """, (start_date, end_date))
                 
-                rows = cursor.fetchall()
-                return [dict(row) for row in rows]
+                return [dict(row) for row in cursor.fetchall()]
                 
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Error fetching entries by date range: {e}")
             return []
     
@@ -131,20 +132,19 @@ class DetailingDatabase:
         """Get all entries for a specific license plate."""
         try:
             with self.get_connection() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                 
                 cursor.execute("""
                     SELECT id, license_plate, detail_type, advisor, location, 
                            hours, entry_date, created_at, notes
                     FROM detailing_entries 
-                    WHERE license_plate = ?
+                    WHERE license_plate = %s
                     ORDER BY entry_date DESC, created_at DESC
                 """, (license_plate.upper().strip(),))
                 
-                rows = cursor.fetchall()
-                return [dict(row) for row in rows]
+                return [dict(row) for row in cursor.fetchall()]
                 
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Error fetching entries by license plate: {e}")
             return []
     
@@ -166,12 +166,12 @@ class DetailingDatabase:
                 
                 # Today's entries
                 today = datetime.now().strftime('%Y-%m-%d')
-                cursor.execute("SELECT COUNT(*) FROM detailing_entries WHERE entry_date = ?", (today,))
+                cursor.execute("SELECT COUNT(*) FROM detailing_entries WHERE entry_date = %s", (today,))
                 result = cursor.fetchone()
                 today_entries = result[0] if result else 0
                 
                 # Today's hours
-                cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM detailing_entries WHERE entry_date = ?", (today,))
+                cursor.execute("SELECT COALESCE(SUM(hours), 0) FROM detailing_entries WHERE entry_date = %s", (today,))
                 result = cursor.fetchone()
                 today_hours = float(result[0]) if result else 0
                 
@@ -194,7 +194,7 @@ class DetailingDatabase:
                     'most_common_type': most_common_type
                 }
                 
-        except sqlite3.Error as e:
+        except psycopg2.Error as e:
             logger.error(f"Error fetching summary stats: {e}")
             return {
                 'total_entries': 0,
