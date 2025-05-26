@@ -114,7 +114,13 @@ def show_dashboard(conn):
         cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC")
         entries = cursor.fetchall()
         if entries:
-            df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created'])
+            # Create DataFrame without specifying columns to avoid mismatch
+            df = pd.DataFrame(entries)
+            # Set proper column names based on actual data
+            df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created'] if len(df.columns) == 8 else ['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created']
+            # Remove location column if it exists
+            if 'Location' in df.columns:
+                df = df.drop('Location', axis=1)
             csv = df.to_csv(index=False)
             st.download_button(
                 "📁 Download CSV",
@@ -291,7 +297,13 @@ def show_log(conn):
         
         # Export option
         st.divider()
-        df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created'])
+        # Create DataFrame without specifying columns to avoid mismatch
+        df = pd.DataFrame(entries)
+        # Set proper column names based on actual data
+        df.columns = ['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created'] if len(df.columns) == 8 else ['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created']
+        # Remove location column if it exists
+        if 'Location' in df.columns:
+            df = df.drop('Location', axis=1)
         csv = df.to_csv(index=False)
         st.download_button(
             "📥 Export All Entries to CSV",
