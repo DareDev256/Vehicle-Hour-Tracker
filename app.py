@@ -20,93 +20,265 @@ def main():
         page_title="Auto Detailing Time Tracker",
         page_icon="🚗",
         layout="wide",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="collapsed"
     )
+    
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+    .main-header {
+        background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        text-align: center;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #2563eb;
+        margin-bottom: 1rem;
+    }
+    .quick-action-btn {
+        background: #2563eb;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        border: none;
+        width: 100%;
+        margin: 0.25rem 0;
+    }
+    .recent-entry {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Initialize database
     db = init_database()
     
-    # Main title
-    st.title("🚗 Auto Detailing Time Tracker")
-    st.markdown("**Professional detailing workflow management for dealerships**")
+    # Main header
+    st.markdown("""
+    <div class="main-header">
+        <h1>🚗 Auto Detailing Time Tracker</h1>
+        <p>Professional detailing workflow management for dealerships</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Sidebar navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox(
-        "Choose a page:",
-        ["📝 New Entry", "📊 Dashboard", "📋 View Entries", "🔍 Search & Filter", "📈 Reports"]
-    )
+    # Navigation tabs (horizontal instead of sidebar)
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🏠 Main Dashboard", "📝 New Entry", "📋 View Log", "🔍 Search", "📊 Reports"
+    ])
     
-    if page == "📝 New Entry":
+    with tab1:
+        show_main_dashboard_page(db)
+    with tab2:
         show_new_entry_page(db)
-    elif page == "📊 Dashboard":
-        show_dashboard_page(db)
-    elif page == "📋 View Entries":
+    with tab3:
         show_view_entries_page(db)
-    elif page == "🔍 Search & Filter":
+    with tab4:
         show_search_filter_page(db)
-    elif page == "📈 Reports":
+    with tab5:
         show_reports_page(db)
 
-def show_new_entry_page(db):
-    st.header("Add New Detailing Entry")
+def show_main_dashboard_page(db):
+    """Main dashboard inspired by the wireframe design"""
     
-    # Create form
+    # Quick stats widget (matching wireframe)
+    stats = db.get_summary_stats()
+    
+    st.markdown("""
+    <div class="stat-card">
+        <h3 style="margin: 0 0 1rem 0; color: #374151;">Today's Progress</h3>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center;">
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #2563eb;">{}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Cars</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #059669;">{:.1f}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Hours</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #dc2626;">{:.1f}</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Avg</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #7c3aed;">$340</div>
+                <div style="font-size: 0.875rem; color: #6b7280;">Value</div>
+            </div>
+        </div>
+    </div>
+    """.format(
+        stats['today_entries'], 
+        stats['today_hours'],
+        stats['today_hours'] / max(stats['today_entries'], 1)
+    ), unsafe_allow_html=True)
+    
+    # Quick actions section
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🚗 Quick New Entry", use_container_width=True, type="primary"):
+            pass
+    
+    with col2:
+        if st.button("📋 View Full Log", use_container_width=True):
+            pass
+    
+    with col3:
+        if st.button("📊 Export Data", use_container_width=True):
+            pass
+    
+    # Recent entries section (matching wireframe style)
+    st.subheader("Recent Entries")
+    recent_entries = db.get_recent_entries(limit=5)
+    
+    if recent_entries:
+        for entry in recent_entries:
+            hours_color = "#dc2626" if entry['hours'] > 3 else "#374151"
+            st.markdown(f"""
+            <div class="recent-entry">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 1rem;">{entry['license_plate']}</div>
+                        <div style="color: #6b7280; font-size: 0.875rem;">{entry['detail_type']} • {entry['advisor']}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: bold; color: {hours_color};">{entry['hours']}h</div>
+                        <div style="color: #6b7280; font-size: 0.75rem;">{entry['location']}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No entries found. Add your first detailing entry to get started!")
+
+def show_new_entry_page(db):
+    st.header("🚗 New Detail Entry")
+    
+    # Create form with better styling
     with st.form("new_entry_form", clear_on_submit=True):
+        # Vehicle info section
+        st.markdown("### Vehicle Information")
         col1, col2 = st.columns(2)
         
         with col1:
             license_plate = st.text_input(
                 "License Plate *",
-                placeholder="Enter license plate (e.g., ABC-1234)",
+                placeholder="ABC-123",
                 help="Enter the vehicle's license plate number"
             )
             
+            stock_number = st.text_input(
+                "Stock Number (Optional)",
+                placeholder="Stock #",
+                help="Internal stock number if available"
+            )
+        
+        with col2:
             detail_type = st.selectbox(
                 "Detail Type *",
-                options=get_detail_types(),
+                options=[
+                    "New Vehicle Delivery",
+                    "CPO/Used Vehicle", 
+                    "Customer Car",
+                    "Showroom Detail",
+                    "Demo Vehicle",
+                    "Full Detail",
+                    "Interior Detail",
+                    "Exterior Detail",
+                    "Polish & Wax",
+                    "Basic Wash",
+                    "Other"
+                ],
                 help="Select the type of detailing service"
             )
             
             advisor = st.text_input(
-                "Advisor Name *",
-                placeholder="Enter advisor's name",
-                help="Name of the service advisor handling this vehicle"
+                "Detailer Name *",
+                placeholder="Detailer name",
+                help="Name of the person performing the detail work"
             )
         
-        with col2:
+        # Service details section  
+        st.markdown("### Service Details")
+        col3, col4 = st.columns(2)
+        
+        with col3:
             location = st.selectbox(
-                "Work Location *",
-                options=get_locations(),
+                "Location *",
+                options=[
+                    "Bay 1", "Bay 2", "Bay 3", "Bay 4",
+                    "Outside", "Service Lane", "Wash Bay", "Detail Shop"
+                ],
                 help="Select where the detailing work will be performed"
             )
-            
+        
+        with col4:
             hours = st.number_input(
-                "Hours *",
+                "Hours Listed *",
                 min_value=0.0,
                 max_value=24.0,
-                step=0.25,
+                step=0.1,
                 value=0.0,
+                placeholder="2.5",
                 help="Time spent on detailing (in hours)"
             )
-            
-            entry_date = st.date_input(
-                "Service Date *",
-                value=date.today(),
-                help="Date when the detailing service was performed"
-            )
         
-        notes = st.text_area(
-            "Notes (Optional)",
-            placeholder="Any additional notes about the service...",
-            help="Optional notes about the detailing service"
+        entry_date = st.date_input(
+            "Service Date *",
+            value=date.today(),
+            help="Date when the detailing service was performed"
         )
         
-        submitted = st.form_submit_button("➕ Add Entry", use_container_width=True)
+        # Quick notes section (matching wireframe)
+        st.markdown("### Quick Notes")
+        quick_notes = [
+            "Pet hair removal", "Extra polish needed", "Heavy cleaning required",
+            "Minor touch-up", "Leather conditioning", "Paint correction"
+        ]
+        
+        # Initialize notes in session state if not exists
+        if 'current_notes' not in st.session_state:
+            st.session_state.current_notes = ""
+        
+        cols = st.columns(3)
+        for i, note in enumerate(quick_notes):
+            with cols[i % 3]:
+                if st.button(f"+ {note}", key=f"note_{i}", use_container_width=True):
+                    if st.session_state.current_notes:
+                        st.session_state.current_notes += f"{note}. "
+                    else:
+                        st.session_state.current_notes = f"{note}. "
+        
+        notes = st.text_area(
+            "Additional Notes",
+            value=st.session_state.current_notes,
+            placeholder="Additional details, issues, or special instructions...",
+            help="Optional notes about the detailing service",
+            height=100
+        )
+        
+        # Action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            cancel = st.form_submit_button("Cancel", use_container_width=True)
+        with col2:
+            submitted = st.form_submit_button("➕ Add Entry", use_container_width=True, type="primary")
         
         if submitted:
+            # Update session notes
+            st.session_state.current_notes = notes
+            
             # Validate form data
-            errors = validate_form_data(license_plate, detail_type, advisor, location, hours)
+            errors = validate_form_data(license_plate or "", detail_type, advisor or "", location, hours)
             
             if errors:
                 for error in errors:
@@ -114,9 +286,9 @@ def show_new_entry_page(db):
             else:
                 # Add entry to database
                 success = db.add_entry(
-                    license_plate=license_plate,
+                    license_plate=license_plate or "",
                     detail_type=detail_type,
-                    advisor=advisor,
+                    advisor=advisor or "",
                     location=location,
                     hours=hours,
                     entry_date=str(entry_date),
@@ -124,10 +296,16 @@ def show_new_entry_page(db):
                 )
                 
                 if success:
-                    show_success_message(f"Entry added successfully for {license_plate.upper()}")
+                    show_success_message(f"Entry added successfully for {(license_plate or '').upper()}")
+                    # Clear notes after successful submission
+                    st.session_state.current_notes = ""
                     st.balloons()
                 else:
                     show_error_message("Failed to add entry. Please try again.")
+        
+        if cancel:
+            # Clear notes on cancel
+            st.session_state.current_notes = ""
 
 def show_dashboard_page(db):
     st.header("Dashboard Overview")
@@ -182,9 +360,33 @@ def show_dashboard_page(db):
         st.info("No entries found. Add your first detailing entry to get started!")
 
 def show_view_entries_page(db):
-    st.header("All Detailing Entries")
+    st.header("📋 Complete Detail Log")
     
-    # Controls
+    # Filter controls (matching wireframe)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        detailer_filter = st.selectbox(
+            "Filter by Detailer:",
+            ["All Detailers", "John Smith", "Maria Garcia", "David Chen"],
+            help="Filter entries by specific detailer"
+        )
+    
+    with col2:
+        date_filter = st.selectbox(
+            "Date Range:",
+            ["Last 30 Days", "This Week", "This Month", "All Time"],
+            help="Filter entries by date range"
+        )
+    
+    # Search box
+    search_term = st.text_input(
+        "🔍 Search by license plate, stock #, or notes...",
+        placeholder="Enter search term",
+        help="Search through all entries"
+    )
+    
+    # Controls row
     col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
@@ -194,7 +396,6 @@ def show_view_entries_page(db):
         sort_order = st.selectbox("Sort by:", ["Newest First", "Oldest First"])
     
     with col3:
-        st.write("")  # Spacer
         refresh = st.button("🔄 Refresh", use_container_width=True)
     
     # Get entries
@@ -203,76 +404,87 @@ def show_view_entries_page(db):
     if sort_order == "Oldest First":
         entries = list(reversed(entries))
     
+    # Apply search filter if provided
+    if search_term:
+        filtered_entries = []
+        search_lower = search_term.lower()
+        for entry in entries:
+            if (search_lower in entry['license_plate'].lower() or
+                search_lower in entry['detail_type'].lower() or
+                search_lower in entry['advisor'].lower() or
+                (entry['notes'] and search_lower in entry['notes'].lower())):
+                filtered_entries.append(entry)
+        entries = filtered_entries
+    
     if entries:
-        df = convert_entries_to_dataframe(entries)
+        # Summary stats (matching wireframe style)
+        stats = calculate_duration_stats(entries)
+        col1, col2, col3 = st.columns(3)
         
-        # Display dataframe with selection
-        event = st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row"
-        )
+        with col1:
+            st.markdown(f"""
+            <div style="background: #dbeafe; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                <div style="font-weight: bold; font-size: 1.5rem; color: #2563eb;">{len(entries)}</div>
+                <div style="font-size: 0.75rem; color: #6b7280;">Total Entries</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Handle row selection for editing/deleting
-        if event.selection.rows:
-            selected_idx = event.selection.rows[0]
-            selected_entry = entries[selected_idx]
-            
-            st.divider()
-            st.subheader("Entry Actions")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("✏️ Edit Entry", use_container_width=True):
-                    st.session_state.edit_entry_id = selected_entry['id']
-                    st.rerun()
-            
-            with col2:
-                if st.button("🗑️ Delete Entry", use_container_width=True, type="secondary"):
-                    if st.session_state.get('confirm_delete') != selected_entry['id']:
-                        st.session_state.confirm_delete = selected_entry['id']
-                        st.rerun()
+        with col2:
+            st.markdown(f"""
+            <div style="background: #dcfce7; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                <div style="font-weight: bold; font-size: 1.5rem; color: #059669;">{stats['total']:.1f}</div>
+                <div style="font-size: 0.75rem; color: #6b7280;">Total Hours</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Handle delete confirmation
-        if 'confirm_delete' in st.session_state:
-            entry_to_delete = st.session_state.confirm_delete
-            st.warning(f"Are you sure you want to delete entry ID {entry_to_delete}?")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Yes, Delete", type="primary"):
-                    if db.delete_entry(entry_to_delete):
-                        show_success_message("Entry deleted successfully")
-                        del st.session_state.confirm_delete
-                        st.rerun()
-                    else:
-                        show_error_message("Failed to delete entry")
-            
-            with col2:
-                if st.button("Cancel"):
-                    del st.session_state.confirm_delete
-                    st.rerun()
+        with col3:
+            st.markdown(f"""
+            <div style="background: #fed7aa; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                <div style="font-weight: bold; font-size: 1.5rem; color: #ea580c;">{stats['avg']:.1f}</div>
+                <div style="font-size: 0.75rem; color: #6b7280;">Avg/Entry</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Handle edit form
-        if 'edit_entry_id' in st.session_state:
-            show_edit_form(db, st.session_state.edit_entry_id)
+        st.divider()
+        
+        # Entry list with better styling
+        for i, entry in enumerate(entries):
+            hours_color = "#dc2626" if entry['hours'] > 3 else "#374151"
+            st.markdown(f"""
+            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">{entry['license_plate']}</div>
+                        <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">{entry['detail_type']} • {entry['advisor']}</div>
+                        <div style="color: #9ca3af; font-size: 0.75rem;">{entry['entry_date']} • {entry['location']}</div>
+                        {f'<div style="color: #4b5563; font-size: 0.75rem; margin-top: 0.25rem; font-style: italic;">{entry["notes"][:100]}{"..." if len(entry["notes"] or "") > 100 else ""}</div>' if entry['notes'] else ''}
+                    </div>
+                    <div style="text-align: right; margin-left: 1rem;">
+                        <div style="font-weight: bold; color: {hours_color}; font-size: 1.25rem;">{entry['hours']}h</div>
+                        <div style="color: #6b7280; font-size: 0.75rem;">ID: {entry['id']}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Export functionality
         st.divider()
-        st.subheader("Export Data")
+        col1, col2 = st.columns(2)
         
-        if st.button("📥 Download as CSV", use_container_width=True):
-            csv_data = export_to_csv(df)
-            st.download_button(
-                label="📁 Download CSV File",
-                data=csv_data,
-                file_name=f"detailing_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+        with col1:
+            if st.button("📥 Download as CSV", use_container_width=True):
+                df = convert_entries_to_dataframe(entries)
+                csv_data = export_to_csv(df)
+                st.download_button(
+                    label="📁 Download CSV File",
+                    data=csv_data,
+                    file_name=f"detailing_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        
+        with col2:
+            st.markdown(f"**Showing {len(entries)} entries**")
     else:
         st.info("No entries found. Add your first detailing entry to get started!")
 
