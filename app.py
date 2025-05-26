@@ -583,38 +583,38 @@ def show_log(conn):
             
             with col2:
                 if st.button("🗑️ Clear All Entries", use_container_width=True, type="secondary"):
-                    if 'confirm_clear' not in st.session_state:
-                        st.session_state.confirm_clear = True
-                        st.rerun()
+                    st.session_state.confirm_clear = True
+                    st.rerun()
+        
+        # Confirmation dialog outside the try block to access conn properly
+        if st.session_state.get('confirm_clear', False):
+            st.warning("⚠️ **Are you sure?** This will permanently delete ALL entries and photos!")
+            col1, col2, col3 = st.columns([1, 1, 1])
             
-            # Confirmation dialog
-            if st.session_state.get('confirm_clear', False):
-                st.warning("⚠️ **Are you sure?** This will permanently delete ALL entries and photos!")
-                col1, col2, col3 = st.columns([1, 1, 1])
-                
-                with col1:
-                    if st.button("✅ Yes, Clear All", type="primary"):
-                        try:
-                            # Clear database
-                            cursor.execute("DELETE FROM entries")
-                            conn.commit()
-                            
-                            # Clear photos directory
-                            import shutil
-                            if os.path.exists('photos'):
-                                shutil.rmtree('photos')
-                                os.makedirs('photos')
-                            
-                            st.session_state.confirm_clear = False
-                            st.success("🧹 All entries and photos cleared successfully!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error clearing data: {e}")
-                
-                with col2:
-                    if st.button("❌ Cancel"):
+            with col1:
+                if st.button("✅ Yes, Clear All", type="primary"):
+                    try:
+                        # Clear database
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM entries")
+                        conn.commit()
+                        
+                        # Clear photos directory
+                        import shutil
+                        if os.path.exists('photos'):
+                            shutil.rmtree('photos')
+                            os.makedirs('photos')
+                        
                         st.session_state.confirm_clear = False
+                        st.success("🧹 All entries and photos cleared successfully!")
                         st.rerun()
+                    except Exception as e:
+                        st.error(f"Error clearing data: {e}")
+            
+            with col2:
+                if st.button("❌ Cancel"):
+                    st.session_state.confirm_clear = False
+                    st.rerun()
         else:
             st.info("🎯 No entries found. Add your first detailing entry to get started!")
     except Exception as e:
