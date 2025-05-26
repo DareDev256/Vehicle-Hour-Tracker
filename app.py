@@ -519,60 +519,45 @@ def show_log(conn):
             
             st.divider()
             
-            # Display entries
+            # Display entries with clean layout
             for entry in entries:
                 badge, color = get_hours_badge(entry[4])
                 
+                # Clean entry card using Streamlit components
                 with st.container():
-                    st.markdown(f"""
-                    <div style="background: white; padding: 1.25rem; border-radius: 0.75rem; 
-                               border: 1px solid #e2e8f0; margin-bottom: 1rem;
-                               box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-                            <div style="flex: 1; min-width: 250px;">
-                                <div style="font-weight: 700; font-size: 1.2rem; color: #1f2937; margin-bottom: 0.5rem;">
-                                    {entry[1]}
-                                </div>
-                                <div style="color: #374151; font-size: 1rem; margin-bottom: 0.25rem;">
-                                    <strong>{entry[2]}</strong> • {entry[3]}
-                                </div>
-                                <div style="color: #6b7280; font-size: 0.9rem; margin-bottom: 0.25rem;">
-                                    📅 {entry[5]}
-                                </div>
-                                {f'<div style="color: #4b5563; font-size: 0.9rem; font-style: italic; margin-top: 0.5rem;">"{entry[6][:150]}{"..." if len(entry[6] or "") > 150 else ""}"</div>' if entry[6] else ''}
-                            </div>
-                            <div style="text-align: right;">
-                                <span style="background: {color}; color: white; padding: 0.5rem 0.75rem; 
-                                            border-radius: 0.5rem; font-weight: 700; font-size: 1rem;">
-                                    {badge} {entry[4]}h
-                                </span>
-                                <div style="color: #9ca3af; font-size: 0.8rem; margin-top: 0.5rem;">
-                                    ID: #{entry[0]}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    col1, col2 = st.columns([3, 1])
                     
-                    # Show photos properly
-                    if len(entry) > 7 and entry[7]:
+                    with col1:
+                        st.markdown(f"### {entry[1]}")
+                        st.markdown(f"**{entry[2]}** • {entry[3]}")
+                        st.caption(f"📅 {entry[5]}")
+                        if entry[6]:
+                            st.markdown(f"*{entry[6][:150]}{'...' if len(entry[6] or '') > 150 else ''}*")
+                    
+                    with col2:
+                        hours_color = "🟢" if float(entry[4]) <= 1 else "🟡" if float(entry[4]) <= 3 else "🟠" if float(entry[4]) <= 6 else "🔴"
+                        st.markdown(f"**{hours_color} {entry[4]}h**")
+                        st.caption(f"ID: #{entry[0]}")
+                    
+                    # Show photos if available
+                    if len(entry) > 7 and entry[7] and entry[7].strip():
                         st.markdown("**📸 Photos:**")
-                        photo_files = entry[7].split(',')
-                        if photo_files and photo_files != ['']:
+                        photo_files = [f.strip() for f in entry[7].split(',') if f.strip()]
+                        
+                        if photo_files:
                             cols = st.columns(min(4, len(photo_files)))
                             for i, photo_file in enumerate(photo_files):
-                                if photo_file and photo_file.strip():
-                                    photo_path = os.path.join('photos', photo_file.strip())
-                                    if os.path.exists(photo_path):
-                                        with cols[i % 4]:
-                                            try:
-                                                image = Image.open(photo_path)
-                                                st.image(image, caption=f"Photo {i+1}", use_container_width=True)
-                                            except Exception as e:
-                                                st.caption(f"📸 Photo {i+1} (error: {e})")
-                                    else:
-                                        with cols[i % 4]:
-                                            st.caption(f"📸 Photo {i+1} (file not found)")
+                                photo_path = os.path.join('photos', photo_file)
+                                if os.path.exists(photo_path):
+                                    with cols[i % 4]:
+                                        try:
+                                            image = Image.open(photo_path)
+                                            st.image(image, caption=f"Photo {i+1}", use_container_width=True)
+                                        except Exception:
+                                            st.caption(f"📸 Photo {i+1}")
+                                else:
+                                    with cols[i % 4]:
+                                        st.caption(f"📸 Missing")
                     
                     st.divider()
             
