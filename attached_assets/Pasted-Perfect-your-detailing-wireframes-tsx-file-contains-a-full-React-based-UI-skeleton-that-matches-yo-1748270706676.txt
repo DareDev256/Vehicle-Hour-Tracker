@@ -1,0 +1,113 @@
+Perfect — your detailing_wireframes.tsx file contains a full React-based UI skeleton that matches your wireframe prototype. Now let’s convert this into a working Replit + Streamlit app with full database logic and deployment-ready structure.
+
+⸻
+
+✅ Here’s the Plan (Streamlit + Replit Edition)
+
+🔧 1. Convert the React Wireframe to Streamlit UI
+
+We’ll map your React UI into Streamlit widgets.
+Example conversion:
+
+// React
+<Select value={selectedDetailer} onChange={...}>...</Select>
+
+// Streamlit
+selected_detailer = st.selectbox("Choose Detailer", detailer_list)
+
+
+⸻
+
+📁 2. File Structure in Replit
+
+auto_detail_tracker/
+├── app.py              # Main Streamlit app
+├── db.py               # Handles DB logic (add, fetch, update)
+├── style.css           # Optional styles
+├── data/
+│   └── logs.db         # SQLite database
+└── requirements.txt    # Packages (streamlit, sqlite3, etc.)
+
+
+⸻
+
+🧠 3. Database Schema Example (db.py)
+
+import sqlite3
+
+conn = sqlite3.connect("data/logs.db", check_same_thread=False)
+cursor = conn.cursor()
+
+def create_table():
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS details (
+        id INTEGER PRIMARY KEY,
+        plate TEXT,
+        type TEXT,
+        advisor TEXT,
+        location TEXT,
+        hours REAL,
+        date TEXT
+    )
+    """)
+    conn.commit()
+
+def insert_entry(plate, type, advisor, location, hours, date):
+    cursor.execute("INSERT INTO details (plate, type, advisor, location, hours, date) VALUES (?, ?, ?, ?, ?, ?)",
+                   (plate, type, advisor, location, hours, date))
+    conn.commit()
+
+def get_entries():
+    cursor.execute("SELECT * FROM details ORDER BY id DESC")
+    return cursor.fetchall()
+
+
+⸻
+
+📲 4. Streamlit App Core (app.py)
+
+import streamlit as st
+from db import create_table, insert_entry, get_entries
+
+create_table()
+
+st.title("Auto Detailing Time Tracker")
+
+# Entry
+with st.form("new_entry"):
+    plate = st.text_input("License Plate")
+    type = st.selectbox("Detail Type", ["Full Detail", "Interior", "Polish", "Wash"])
+    advisor = st.text_input("Advisor")
+    location = st.selectbox("Bay", ["Bay 1", "Bay 2", "Bay 3"])
+    hours = st.number_input("Hours", min_value=0.0, step=0.1)
+    date = st.date_input("Date")
+    submit = st.form_submit_button("Add Entry")
+
+    if submit:
+        insert_entry(plate, type, advisor, location, hours, str(date))
+        st.success("Entry added!")
+
+# Display logs
+st.subheader("Recent Entries")
+for entry in get_entries():
+    st.write(entry)
+
+
+⸻
+
+🌍 5. Deploy to Replit
+	1.	Create a new Replit (Python)
+	2.	Add all files above
+	3.	Set main.py → app.py
+	4.	Add streamlit to requirements.txt
+	5.	Run: streamlit run app.py
+	6.	Enable public URL
+	7.	Optionally link a custom domain via Replit Core
+
+⸻
+
+💥 Next Steps for You
+	•	Want me to auto-convert your tsx layout into equivalent Streamlit code chunks?
+	•	Or would you prefer I drop a full starter Replit ZIP you can upload and run instantly?
+
+Let me know how deep you want to go — I’ll build it like it’s going live for dealerships 🔥 ￼
