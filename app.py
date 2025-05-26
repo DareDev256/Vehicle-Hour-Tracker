@@ -332,7 +332,20 @@ def show_dashboard(conn):
                     
                     # Show photos if available
                     if len(entry) > 7 and entry[7]:
-                        display_photos(entry[7])
+                        photo_files = entry[7].split(',')
+                        if photo_files and photo_files != ['']:
+                            st.markdown("**📸 Photos:**")
+                            cols = st.columns(min(4, len(photo_files)))
+                            for i, photo_file in enumerate(photo_files):
+                                if photo_file and photo_file.strip():
+                                    photo_path = os.path.join('photos', photo_file.strip())
+                                    if os.path.exists(photo_path):
+                                        with cols[i % 4]:
+                                            try:
+                                                image = Image.open(photo_path)
+                                                st.image(image, caption=f"Photo {i+1}", use_container_width=True)
+                                            except Exception:
+                                                st.caption(f"📸 Photo {i+1}")
                         st.divider()
         else:
             st.info("🎯 No entries yet. Add your first detailing entry to get started!")
@@ -541,10 +554,25 @@ def show_log(conn):
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Show photos
+                    # Show photos properly
                     if len(entry) > 7 and entry[7]:
                         st.markdown("**📸 Photos:**")
-                        display_photos(entry[7])
+                        photo_files = entry[7].split(',')
+                        if photo_files and photo_files != ['']:
+                            cols = st.columns(min(4, len(photo_files)))
+                            for i, photo_file in enumerate(photo_files):
+                                if photo_file and photo_file.strip():
+                                    photo_path = os.path.join('photos', photo_file.strip())
+                                    if os.path.exists(photo_path):
+                                        with cols[i % 4]:
+                                            try:
+                                                image = Image.open(photo_path)
+                                                st.image(image, caption=f"Photo {i+1}", use_container_width=True)
+                                            except Exception as e:
+                                                st.caption(f"📸 Photo {i+1} (error: {e})")
+                                    else:
+                                        with cols[i % 4]:
+                                            st.caption(f"📸 Photo {i+1} (file not found)")
                     
                     st.divider()
             
