@@ -13,7 +13,6 @@ def init_db():
             license_plate TEXT NOT NULL,
             detail_type TEXT NOT NULL,
             advisor TEXT NOT NULL,
-            location TEXT NOT NULL,
             hours REAL NOT NULL,
             entry_date DATE NOT NULL,
             notes TEXT,
@@ -115,7 +114,7 @@ def show_dashboard(conn):
         cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC")
         entries = cursor.fetchall()
         if entries:
-            df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created'])
+            df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created'])
             csv = df.to_csv(index=False)
             st.download_button(
                 "📁 Download CSV",
@@ -134,21 +133,24 @@ def show_dashboard(conn):
     
     if entries:
         for entry in entries:
-            hours_color = "#dc2626" if entry[5] > 3 else "#374151"
-            st.markdown(f"""
-            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 0.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 1rem;">{entry[1]}</div>
-                        <div style="color: #6b7280; font-size: 0.875rem;">{entry[2]} • {entry[3]}</div>
-                        <div style="color: #9ca3af; font-size: 0.75rem;">{entry[6]} • {entry[4]}</div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: bold; color: {hours_color};">{entry[5]}h</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container():
+                col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+                
+                with col1:
+                    st.write(f"**{entry[1]}**")  # License Plate
+                    st.caption(f"{entry[2]}")  # Detail Type
+                
+                with col2:
+                    st.write(f"{entry[3]}")  # Advisor Name
+                
+                with col3:
+                    st.write(f"{entry[5]}")  # Date (adjusted index)
+                
+                with col4:
+                    hours_color = "🔴" if entry[4] > 3 else "⏱️"  # Hours (adjusted index)
+                    st.write(f"{hours_color} {entry[4]}h")
+                
+                st.divider()
     else:
         st.info("No entries yet. Add your first entry to get started!")
 
@@ -178,10 +180,7 @@ def show_new_entry(conn):
         
         advisor = st.text_input("Advisor/Detailer Name *", placeholder="Enter name")
         
-        location = st.selectbox("Location *", [
-            "Bay 1", "Bay 2", "Bay 3", "Bay 4",
-            "Outside", "Service Lane", "Wash Bay", "Detail Shop"
-        ])
+
         
         hours = st.number_input("Hours *", min_value=0.1, max_value=24.0, step=0.1, value=1.0)
         
@@ -202,13 +201,19 @@ def show_new_entry(conn):
             try:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO entries (license_plate, detail_type, advisor, location, hours, entry_date, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (license_plate.upper().strip(), detail_type, advisor.strip(), location, hours, str(entry_date), notes.strip()))
+                    INSERT INTO entries (license_plate, detail_type, advisor, hours, entry_date, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (license_plate.upper().strip(), detail_type, advisor.strip(), hours, str(entry_date), notes.strip()))
                 conn.commit()
                 
-                st.success(f"✅ Entry added successfully for {license_plate.upper()}")
+                # Show success message with entry details
+                st.success(f"✅ Entry added successfully!")
+                st.info(f"**{license_plate.upper()}** • {detail_type} • {advisor} • {hours}h • {entry_date}")
                 st.balloons()
+                
+                # Wait a moment for user to see the feedback, then refresh
+                import time
+                time.sleep(1)
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Error adding entry: {e}")
@@ -236,31 +241,57 @@ def show_log(conn):
         
         st.divider()
         
-        # Display entries
+        # Display entries in clean format
+        st.subheader("Entry Log (Newest First)")
+        
+        # Header row
+        col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 1.5, 1, 1])
+        with col1:
+            st.write("**License Plate**")
+        with col2:
+            st.write("**Detail Type**")
+        with col3:
+            st.write("**Detailer**")
+        with col4:
+            st.write("**Date**")
+        with col5:
+            st.write("**Hours**")
+        with col6:
+            st.write("**ID**")
+        
+        st.divider()
+        
         for entry in entries:
-            hours_color = "#dc2626" if entry[5] > 3 else "#374151"
-            notes_text = f'<div style="color: #4b5563; font-size: 0.75rem; margin-top: 0.25rem; font-style: italic;">{entry[7][:100]}{"..." if len(entry[7] or "") > 100 else ""}</div>' if entry[7] else ''
+            col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 1.5, 1, 1])
             
-            st.markdown(f"""
-            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 0.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">{entry[1]}</div>
-                        <div style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">{entry[2]} • {entry[3]}</div>
-                        <div style="color: #9ca3af; font-size: 0.75rem;">{entry[6]} • {entry[4]}</div>
-                        {notes_text}
-                    </div>
-                    <div style="text-align: right; margin-left: 1rem;">
-                        <div style="font-weight: bold; color: {hours_color}; font-size: 1.25rem;">{entry[5]}h</div>
-                        <div style="color: #6b7280; font-size: 0.75rem;">ID: {entry[0]}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            with col1:
+                st.write(f"**{entry[1]}**")  # License Plate
+            
+            with col2:
+                st.write(f"{entry[2]}")  # Detail Type
+            
+            with col3:
+                st.write(f"{entry[3]}")  # Advisor/Detailer Name
+            
+            with col4:
+                st.write(f"{entry[5]}")  # Date (adjusted index)
+            
+            with col5:
+                hours_indicator = "🔴" if entry[4] > 3 else "⏱️"  # Hours (adjusted index)
+                st.write(f"{hours_indicator} {entry[4]}h")
+            
+            with col6:
+                st.write(f"#{entry[0]}")  # Entry ID
+            
+            # Show notes if they exist
+            if entry[6]:  # Notes (adjusted index)
+                st.caption(f"📝 {entry[6][:100]}{'...' if len(entry[6]) > 100 else ''}")
+            
+            st.divider()
         
         # Export option
         st.divider()
-        df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Location', 'Hours', 'Date', 'Notes', 'Created'])
+        df = pd.DataFrame(entries, columns=['ID', 'License Plate', 'Type', 'Advisor', 'Hours', 'Date', 'Notes', 'Created'])
         csv = df.to_csv(index=False)
         st.download_button(
             "📥 Export All Entries to CSV",
