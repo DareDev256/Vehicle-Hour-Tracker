@@ -308,30 +308,36 @@ def show_new_entry_page(db):
             st.session_state.current_notes = notes
             
             # Validate form data
-            errors = validate_form_data(license_plate or "", detail_type, advisor or "", location, hours)
-            
-            if errors:
-                for error in errors:
-                    show_error_message(error)
+            if not license_plate:
+                show_error_message("License plate is required.")
+            elif not advisor:
+                show_error_message("Advisor name is required.")
+            elif hours <= 0:
+                show_error_message("Hours must be greater than 0.")
             else:
-                # Add entry to database
-                success = db.add_entry(
-                    license_plate=license_plate or "",
-                    detail_type=detail_type,
-                    advisor=advisor or "",
-                    location=location,
-                    hours=hours,
-                    entry_date=str(entry_date),
-                    notes=notes
-                )
-                
-                if success:
-                    show_success_message(f"Entry added successfully for {(license_plate or '').upper()}")
-                    # Clear notes after successful submission
-                    st.session_state.current_notes = ""
-                    st.balloons()
-                else:
-                    show_error_message("Failed to add entry. Please try again.")
+                try:
+                    # Add entry to database
+                    success = db.add_entry(
+                        license_plate=license_plate,
+                        detail_type=detail_type,
+                        advisor=advisor,
+                        location=location,
+                        hours=hours,
+                        entry_date=str(entry_date),
+                        notes=notes
+                    )
+                    
+                    if success:
+                        show_success_message(f"Entry added successfully for {license_plate.upper()}")
+                        # Clear notes after successful submission
+                        st.session_state.current_notes = ""
+                        st.balloons()
+                        st.rerun()  # Refresh to show new entry
+                    else:
+                        show_error_message("Failed to add entry. Please try again.")
+                except Exception as e:
+                    show_error_message(f"Database error: {str(e)}")
+                    st.error("Please check your database connection.")
 
 def show_dashboard_page(db):
     st.header("Dashboard Overview")
