@@ -163,6 +163,27 @@ def show_main_dashboard_page(db):
 def show_new_entry_page(db):
     st.header("🚗 New Detail Entry")
     
+    # Quick notes section (outside form - matching wireframe)
+    st.markdown("### Quick Notes")
+    quick_notes = [
+        "Pet hair removal", "Extra polish needed", "Heavy cleaning required",
+        "Minor touch-up", "Leather conditioning", "Paint correction"
+    ]
+    
+    # Initialize notes in session state if not exists
+    if 'current_notes' not in st.session_state:
+        st.session_state.current_notes = ""
+    
+    cols = st.columns(3)
+    for i, note in enumerate(quick_notes):
+        with cols[i % 3]:
+            if st.button(f"+ {note}", key=f"note_{i}", use_container_width=True):
+                if st.session_state.current_notes:
+                    st.session_state.current_notes += f"{note}. "
+                else:
+                    st.session_state.current_notes = f"{note}. "
+                st.rerun()
+    
     # Create form with better styling
     with st.form("new_entry_form", clear_on_submit=True):
         # Vehicle info section
@@ -238,26 +259,6 @@ def show_new_entry_page(db):
             help="Date when the detailing service was performed"
         )
         
-        # Quick notes section (matching wireframe)
-        st.markdown("### Quick Notes")
-        quick_notes = [
-            "Pet hair removal", "Extra polish needed", "Heavy cleaning required",
-            "Minor touch-up", "Leather conditioning", "Paint correction"
-        ]
-        
-        # Initialize notes in session state if not exists
-        if 'current_notes' not in st.session_state:
-            st.session_state.current_notes = ""
-        
-        cols = st.columns(3)
-        for i, note in enumerate(quick_notes):
-            with cols[i % 3]:
-                if st.button(f"+ {note}", key=f"note_{i}", use_container_width=True):
-                    if st.session_state.current_notes:
-                        st.session_state.current_notes += f"{note}. "
-                    else:
-                        st.session_state.current_notes = f"{note}. "
-        
         notes = st.text_area(
             "Additional Notes",
             value=st.session_state.current_notes,
@@ -274,7 +275,7 @@ def show_new_entry_page(db):
             submitted = st.form_submit_button("➕ Add Entry", use_container_width=True, type="primary")
         
         if submitted:
-            # Update session notes
+            # Update session notes with form value
             st.session_state.current_notes = notes
             
             # Validate form data
