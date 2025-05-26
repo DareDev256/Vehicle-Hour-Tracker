@@ -567,6 +567,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "pandas" },
+    { name = "pillow" },
     { name = "psycopg2-binary" },
     { name = "streamlit" },
 ]
@@ -574,6 +575,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "pandas", specifier = ">=2.2.3" },
+    { name = "pillow", specifier = ">=11.2.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "streamlit", specifier = ">=1.45.1" },
 ]
