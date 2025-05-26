@@ -109,10 +109,10 @@ def main():
     </style>
     """, unsafe_allow_html=True)
     
-    # Header
+    # Enhanced Header with Navigation
     st.markdown("""
     <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #1d4ed8 100%); 
-                padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 2rem; 
+                padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 1rem; 
                 color: white; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
         <h1 style="margin: 0; font-size: 2rem;">🚗 Auto Detailing Tracker</h1>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Professional workflow management for detailing teams</p>
@@ -129,25 +129,69 @@ def main():
     
     conn = st.session_state.db_conn
     
-    # Check for Quick Action redirects
+    # Persistent Navigation Bar
+    nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
+    
+    with nav_col1:
+        if st.button("🏠 Dashboard", use_container_width=True, key="nav_dashboard", 
+                    type="primary" if st.session_state.current_view == 'dashboard' else "secondary"):
+            st.session_state.current_view = 'dashboard'
+            st.rerun()
+    
+    with nav_col2:
+        if st.button("📝 New Entry", use_container_width=True, key="nav_new_entry",
+                    type="primary" if st.session_state.current_view == 'new_entry' else "secondary"):
+            st.session_state.current_view = 'new_entry'
+            st.rerun()
+    
+    with nav_col3:
+        if st.button("📋 View Log", use_container_width=True, key="nav_view_log",
+                    type="primary" if st.session_state.current_view == 'view_log' else "secondary"):
+            st.session_state.current_view = 'view_log'
+            st.rerun()
+    
+    with nav_col4:
+        # Export button in navigation
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM entries")
+            entry_count = cursor.fetchone()[0]
+            
+            if entry_count > 0:
+                cursor.execute("SELECT * FROM entries ORDER BY entry_date DESC")
+                entries = cursor.fetchall()
+                data = []
+                for entry in entries:
+                    data.append({
+                        'ID': entry[0], 'License Plate': entry[1], 'Type': entry[2],
+                        'Advisor': entry[3], 'Hours': entry[4], 'Date': entry[5],
+                        'Notes': entry[6] or '', 'Created': entry[8] if len(entry) > 8 else ''
+                    })
+                df = pd.DataFrame(data)
+                csv = df.to_csv(index=False)
+                
+                st.download_button(
+                    "📊 Export",
+                    csv,
+                    f"detailing_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    "text/csv",
+                    use_container_width=True,
+                    key="nav_export"
+                )
+            else:
+                st.button("📊 Export", disabled=True, use_container_width=True, key="nav_export_disabled")
+        except:
+            st.button("📊 Export", disabled=True, use_container_width=True, key="nav_export_error")
+    
+    st.markdown("---")
+    
+    # Display content based on current view
     if st.session_state.current_view == 'new_entry':
         show_new_entry(conn)
-        st.session_state.current_view = 'dashboard'  # Reset
     elif st.session_state.current_view == 'view_log':
         show_log(conn)
-        st.session_state.current_view = 'dashboard'  # Reset
     else:
-        # Normal tab navigation
-        tab1, tab2, tab3 = st.tabs(["🏠 Dashboard", "📝 New Entry", "📋 View Log"])
-        
-        with tab1:
-            show_dashboard(conn)
-        
-        with tab2:
-            show_new_entry(conn)
-        
-        with tab3:
-            show_log(conn)
+        show_dashboard(conn)
 
 def show_dashboard(conn):
     """Enhanced dashboard with working Quick Actions"""
