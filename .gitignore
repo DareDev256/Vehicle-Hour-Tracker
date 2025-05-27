@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches & logs
+*.log
+*.sqlite3
+*.db
+
+# Replit files
+.replit
+.replit.db
+.replit.hidden/
+
+# Python virtual environments
+.venv/
+env/
+venv/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Jupyter / notebook / IPython
+.ipynb_checkpoints/
+
+# Test output
+coverage/
+.pytest_cache/
+
+# Output / exports
+*.csv
+*.xlsx
+*.zip
+
+# IDE / editor configs
+.vscode/
+.idea/
+*.swp
