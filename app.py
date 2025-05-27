@@ -6,8 +6,10 @@ import os
 from PIL import Image
 
 def init_db():
-    """Initialize SQLite database"""
-    conn = sqlite3.connect('detailing.db', check_same_thread=False)
+    """Initialize SQLite database with proper persistence"""
+    # Use absolute path to ensure database persists
+    db_path = os.path.abspath('detailing_tracker.db')
+    conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS entries (
