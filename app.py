@@ -365,25 +365,46 @@ def show_new_entry(conn):
                 st.markdown("**📸 Current Photos:**")
                 photo_files = [f.strip() for f in edit_entry[7].split(',') if f.strip()]
                 if photo_files:
-                    cols = st.columns(min(4, len(photo_files)))
+                    # Display photos with delete buttons
                     for i, photo_file in enumerate(photo_files):
                         photo_path = os.path.join('photos', photo_file)
                         if os.path.exists(photo_path):
-                            with cols[i % 4]:
+                            col_img, col_btn = st.columns([3, 1])
+                            with col_img:
                                 try:
                                     image = Image.open(photo_path)
-                                    st.image(image, caption=f"Photo {i+1}", use_container_width=True)
-                                    # Delete checkbox for each photo
-                                    if st.checkbox(f"🗑️ Delete", key=f"delete_photo_{i}_{edit_entry[0]}", help=f"Delete Photo {i+1}"):
-                                        photos_to_delete.append(photo_file)
+                                    st.image(image, caption=f"Current Photo {i+1}", use_container_width=True)
                                 except Exception:
-                                    st.caption(f"📸 Photo {i+1}")
-                                    if st.checkbox(f"🗑️ Delete", key=f"delete_photo_{i}_{edit_entry[0]}", help=f"Delete Photo {i+1}"):
-                                        photos_to_delete.append(photo_file)
+                                    st.caption(f"📸 Photo {i+1} (error loading)")
+                            
+                            with col_btn:
+                                st.write("")  # Spacing
+                                if st.button(f"🗑️ Remove", key=f"remove_photo_{i}_{edit_entry[0]}", 
+                                           help=f"Remove Photo {i+1}", use_container_width=True, type="secondary"):
+                                    # Add to session state for confirmation
+                                    if f'confirm_delete_photo_{i}' not in st.session_state:
+                                        st.session_state[f'confirm_delete_photo_{i}'] = photo_file
+                                        st.rerun()
+                                
+                                # Show confirmation if photo is marked for deletion
+                                if st.session_state.get(f'confirm_delete_photo_{i}') == photo_file:
+                                    st.error(f"⚠️ Delete Photo {i+1}?")
+                                    col_yes, col_no = st.columns(2)
+                                    with col_yes:
+                                        if st.button("✅ Yes", key=f"confirm_yes_{i}", use_container_width=True):
+                                            photos_to_delete.append(photo_file)
+                                            del st.session_state[f'confirm_delete_photo_{i}']
+                                            st.rerun()
+                                    with col_no:
+                                        if st.button("❌ No", key=f"confirm_no_{i}", use_container_width=True):
+                                            del st.session_state[f'confirm_delete_photo_{i}']
+                                            st.rerun()
+                            
+                            st.divider()
                 
                 replace_photos = st.checkbox("🔄 Replace all existing photos with new uploads", 
                                            help="Check this to replace current photos, leave unchecked to add to existing photos")
-                st.info("💡 Upload new photos above to add or replace existing ones, or check boxes below photos to delete specific images")
+                st.info("💡 Upload new photos above to add or replace existing ones, or click '🗑️ Remove' next to photos you want to delete")
         
         # Notes
         notes = st.text_area("📝 Notes & Comments", 
