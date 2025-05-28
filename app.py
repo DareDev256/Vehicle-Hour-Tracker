@@ -359,8 +359,9 @@ def show_new_entry(conn):
                                             help="Add new photos or replace existing ones")
             
             # Show existing photos for edit mode
+            replace_photos = False
             if edit_entry and len(edit_entry) > 7 and edit_entry[7]:
-                st.markdown("**Current Photos:**")
+                st.markdown("**📸 Current Photos:**")
                 photo_files = [f.strip() for f in edit_entry[7].split(',') if f.strip()]
                 if photo_files:
                     cols = st.columns(min(4, len(photo_files)))
@@ -376,6 +377,7 @@ def show_new_entry(conn):
                 
                 replace_photos = st.checkbox("🔄 Replace all existing photos with new uploads", 
                                            help="Check this to replace current photos, leave unchecked to add to existing photos")
+                st.info("💡 Upload new photos above to add or replace existing ones")
         
         # Notes
         notes = st.text_area("📝 Notes & Comments", 
