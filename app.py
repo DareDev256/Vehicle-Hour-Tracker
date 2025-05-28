@@ -6,10 +6,11 @@ import os
 from PIL import Image
 
 def init_db():
-    """Initialize SQLite database with proper persistence"""
-    # Use absolute path to ensure database persists
-    db_path = os.path.abspath('detailing_tracker.db')
-    conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
+    """Initialize SQLite database with persistent storage"""
+    # Use current working directory for database file
+    db_path = 'detailing_persistent.db'
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.execute('PRAGMA journal_mode=WAL')  # Enable Write-Ahead Logging for better persistence
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS entries (
