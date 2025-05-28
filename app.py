@@ -358,53 +358,38 @@ def show_new_entry(conn):
                                             type=['jpg', 'jpeg', 'png', 'heic'],
                                             help="Add new photos or replace existing ones")
             
-            # Show existing photos for edit mode with delete options
+            # Show existing photos for edit mode with delete checkboxes
             replace_photos = False
             photos_to_delete = []
             if edit_entry and len(edit_entry) > 7 and edit_entry[7]:
                 st.markdown("**📸 Current Photos:**")
                 photo_files = [f.strip() for f in edit_entry[7].split(',') if f.strip()]
                 if photo_files:
-                    # Display photos with delete buttons
+                    # Display photos with delete checkboxes
+                    cols = st.columns(min(3, len(photo_files)))
                     for i, photo_file in enumerate(photo_files):
                         photo_path = os.path.join('photos', photo_file)
                         if os.path.exists(photo_path):
-                            col_img, col_btn = st.columns([3, 1])
-                            with col_img:
+                            with cols[i % 3]:
                                 try:
                                     image = Image.open(photo_path)
-                                    st.image(image, caption=f"Current Photo {i+1}", use_container_width=True)
+                                    st.image(image, caption=f"Photo {i+1}", use_container_width=True)
                                 except Exception:
                                     st.caption(f"📸 Photo {i+1} (error loading)")
-                            
-                            with col_btn:
-                                st.write("")  # Spacing
-                                if st.button(f"🗑️ Remove", key=f"remove_photo_{i}_{edit_entry[0]}", 
-                                           help=f"Remove Photo {i+1}", use_container_width=True, type="secondary"):
-                                    # Add to session state for confirmation
-                                    if f'confirm_delete_photo_{i}' not in st.session_state:
-                                        st.session_state[f'confirm_delete_photo_{i}'] = photo_file
-                                        st.rerun()
                                 
-                                # Show confirmation if photo is marked for deletion
-                                if st.session_state.get(f'confirm_delete_photo_{i}') == photo_file:
-                                    st.error(f"⚠️ Delete Photo {i+1}?")
-                                    col_yes, col_no = st.columns(2)
-                                    with col_yes:
-                                        if st.button("✅ Yes", key=f"confirm_yes_{i}", use_container_width=True):
-                                            photos_to_delete.append(photo_file)
-                                            del st.session_state[f'confirm_delete_photo_{i}']
-                                            st.rerun()
-                                    with col_no:
-                                        if st.button("❌ No", key=f"confirm_no_{i}", use_container_width=True):
-                                            del st.session_state[f'confirm_delete_photo_{i}']
-                                            st.rerun()
-                            
-                            st.divider()
+                                # Delete checkbox for each photo
+                                if st.checkbox(f"🗑️ Remove Photo {i+1}", 
+                                             key=f"delete_photo_{i}_{edit_entry[0]}", 
+                                             help=f"Mark Photo {i+1} for deletion"):
+                                    photos_to_delete.append(photo_file)
                 
                 replace_photos = st.checkbox("🔄 Replace all existing photos with new uploads", 
                                            help="Check this to replace current photos, leave unchecked to add to existing photos")
-                st.info("💡 Upload new photos above to add or replace existing ones, or click '🗑️ Remove' next to photos you want to delete")
+                
+                if photos_to_delete:
+                    st.warning(f"⚠️ {len(photos_to_delete)} photo(s) marked for deletion. They will be removed when you update the entry.")
+                
+                st.info("💡 Upload new photos above to add or replace existing ones, or check boxes below photos to mark for deletion")
         
         # Notes
         notes = st.text_area("📝 Notes & Comments", 
