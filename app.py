@@ -358,8 +358,9 @@ def show_new_entry(conn):
                                             type=['jpg', 'jpeg', 'png', 'heic'],
                                             help="Add new photos or replace existing ones")
             
-            # Show existing photos for edit mode
+            # Show existing photos for edit mode with delete options
             replace_photos = False
+            photos_to_delete = []
             if edit_entry and len(edit_entry) > 7 and edit_entry[7]:
                 st.markdown("**📸 Current Photos:**")
                 photo_files = [f.strip() for f in edit_entry[7].split(',') if f.strip()]
@@ -371,13 +372,18 @@ def show_new_entry(conn):
                             with cols[i % 4]:
                                 try:
                                     image = Image.open(photo_path)
-                                    st.image(image, caption=f"Current Photo {i+1}", use_container_width=True)
+                                    st.image(image, caption=f"Photo {i+1}", use_container_width=True)
+                                    # Delete checkbox for each photo
+                                    if st.checkbox(f"🗑️ Delete", key=f"delete_photo_{i}_{edit_entry[0]}", help=f"Delete Photo {i+1}"):
+                                        photos_to_delete.append(photo_file)
                                 except Exception:
                                     st.caption(f"📸 Photo {i+1}")
+                                    if st.checkbox(f"🗑️ Delete", key=f"delete_photo_{i}_{edit_entry[0]}", help=f"Delete Photo {i+1}"):
+                                        photos_to_delete.append(photo_file)
                 
                 replace_photos = st.checkbox("🔄 Replace all existing photos with new uploads", 
                                            help="Check this to replace current photos, leave unchecked to add to existing photos")
-                st.info("💡 Upload new photos above to add or replace existing ones")
+                st.info("💡 Upload new photos above to add or replace existing ones, or check boxes below photos to delete specific images")
         
         # Notes
         notes = st.text_area("📝 Notes & Comments", 
@@ -410,42 +416,46 @@ def show_new_entry(conn):
                 if edit_entry:
                     # Update existing entry
                     if update_entry(conn, edit_entry[0], license_plate, detail_type, advisor, hours, entry_date, notes):
-                        # Handle photo updates
-                        if uploaded_files:
-                            cursor = conn.cursor()
-                            
-                            # Check if we should replace or add to existing photos
-                            if 'replace_photos' in locals() and replace_photos:
-                                # Delete existing photos
-                                if edit_entry[7]:
-                                    old_photo_files = edit_entry[7].split(',')
-                                    for photo_file in old_photo_files:
-                                        if photo_file.strip():
-                                            photo_path = os.path.join('photos', photo_file.strip())
-                                            if os.path.exists(photo_path):
-                                                os.remove(photo_path)
-                                
-                                # Save new photos
-                                new_photo_string = save_uploaded_photos(uploaded_files[:8], edit_entry[0])
-                                cursor.execute('UPDATE entries SET photos = ? WHERE id = ?', (new_photo_string, edit_entry[0]))
-                            else:
-                                # Add to existing photos
-                                new_photos = save_uploaded_photos(uploaded_files[:8], edit_entry[0])
-                                existing_photos = edit_entry[7] if edit_entry[7] else ""
-                                
-                                if existing_photos:
-                                    combined_photos = f"{existing_photos},{new_photos}"
-                                else:
-                                    combined_photos = new_photos
-                                
-                                # Limit to 8 photos total
-                                all_photos = [p.strip() for p in combined_photos.split(',') if p.strip()]
-                                final_photos = ','.join(all_photos[:8])
-                                
-                                cursor.execute('UPDATE entries SET photos = ? WHERE id = ?', (final_photos, edit_entry[0]))
-                            
-                            conn.commit()
+                        cursor = conn.cursor()
                         
+                        # Handle photo deletions first
+                        if photos_to_delete:
+                            for photo_file in photos_to_delete:
+                                photo_path = os.path.join('photos', photo_file)
+                                if os.path.exists(photo_path):
+                                    os.remove(photo_path)
+                        
+                        # Handle photo updates
+                        if replace_photos and uploaded_files:
+                            # Delete all existing photos and replace with new ones
+                            if edit_entry[7]:
+                                old_photo_files = edit_entry[7].split(',')
+                                for photo_file in old_photo_files:
+                                    if photo_file.strip():
+                                        photo_path = os.path.join('photos', photo_file.strip())
+                                        if os.path.exists(photo_path):
+                                            os.remove(photo_path)
+                            
+                            # Save new photos
+                            new_photo_string = save_uploaded_photos(uploaded_files[:8], edit_entry[0])
+                            cursor.execute('UPDATE entries SET photos = ? WHERE id = ?', (new_photo_string, edit_entry[0]))
+                        
+                        elif uploaded_files or photos_to_delete:
+                            # Add new photos or just update after deletions
+                            existing_photos = edit_entry[7] if edit_entry[7] else ""
+                            current_photos = [p.strip() for p in existing_photos.split(',') if p.strip() and p not in photos_to_delete]
+                            
+                            # Add new photos if any
+                            if uploaded_files:
+                                new_photos = save_uploaded_photos(uploaded_files[:8], edit_entry[0])
+                                new_photo_list = [p.strip() for p in new_photos.split(',') if p.strip()]
+                                current_photos.extend(new_photo_list)
+                            
+                            # Limit to 8 photos total
+                            final_photos = ','.join(current_photos[:8])
+                            cursor.execute('UPDATE entries SET photos = ? WHERE id = ?', (final_photos, edit_entry[0]))
+                        
+                        conn.commit()
                         st.success("✅ Entry and photos updated successfully!")
                         del st.session_state.edit_entry_id
                         st.rerun()
