@@ -5,37 +5,79 @@ from datetime import datetime, date
 import os
 from PIL import Image
 import json
+import tempfile
+
+def get_photos_dir():
+    """Get the photos directory path, cloud-compatible"""
+    db_dir = os.path.expanduser('~') if os.path.expanduser('~') != '~' else tempfile.gettempdir()
+    photos_dir = os.path.join(db_dir, 'photos')
+    try:
+        if not os.path.exists(photos_dir):
+            os.makedirs(photos_dir, exist_ok=True)
+        return photos_dir
+    except (OSError, PermissionError):
+        # Fallback to temp directory
+        fallback_dir = os.path.join(tempfile.gettempdir(), 'streamlit_photos')
+        os.makedirs(fallback_dir, exist_ok=True)
+        return fallback_dir
 
 def init_db():
     """Initialize SQLite database with persistent storage"""
-    db_path = 'detail_log.db'
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.execute('PRAGMA journal_mode=WAL')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            license_plate TEXT NOT NULL,
-            detail_type TEXT NOT NULL,
-            advisor TEXT NOT NULL,
-            hours REAL NOT NULL,
-            entry_date DATE NOT NULL,
-            notes TEXT,
-            photos TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    # Use absolute path for Streamlit Cloud compatibility
+    import tempfile
+    db_dir = os.path.expanduser('~') if os.path.expanduser('~') != '~' else tempfile.gettempdir()
+    db_path = os.path.join(db_dir, 'detail_log.db')
     
-    # Auto-cleanup entries older than 60 days
-    cursor.execute('''
-        DELETE FROM entries 
-        WHERE created_at < datetime('now', '-60 days')
-    ''')
-    
-    if not os.path.exists('photos'):
-        os.makedirs('photos')
-    conn.commit()
-    return conn
+    try:
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        # Disable WAL mode for cloud compatibility
+        conn.execute('PRAGMA journal_mode=DELETE')
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                license_plate TEXT NOT NULL,
+                detail_type TEXT NOT NULL,
+                advisor TEXT NOT NULL,
+                hours REAL NOT NULL,
+                entry_date DATE NOT NULL,
+                notes TEXT,
+                photos TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Auto-cleanup entries older than 60 days
+        cursor.execute('''
+            DELETE FROM entries 
+            WHERE created_at < datetime('now', '-60 days')
+        ''')
+        
+        # Ensure photos directory exists
+        get_photos_dir()
+        
+        conn.commit()
+        return conn
+    except Exception as e:
+        st.error(f"Database initialization failed: {e}")
+        # Return in-memory database as fallback
+        conn = sqlite3.connect(':memory:', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                license_plate TEXT NOT NULL,
+                detail_type TEXT NOT NULL,
+                advisor TEXT NOT NULL,
+                hours REAL NOT NULL,
+                entry_date DATE NOT NULL,
+                notes TEXT,
+                photos TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        return conn
 
 def delete_entry(conn, entry_id):
     """Delete an entry and its associated photos"""
@@ -44,12 +86,16 @@ def delete_entry(conn, entry_id):
     result = cursor.fetchone()
     
     if result and result[0]:
+        photos_dir = get_photos_dir()
         photo_files = result[0].split(',')
         for photo_file in photo_files:
             if photo_file.strip():
-                photo_path = os.path.join('photos', photo_file.strip())
-                if os.path.exists(photo_path):
-                    os.remove(photo_path)
+                photo_path = os.path.join(photos_dir, photo_file.strip())
+                try:
+                    if os.path.exists(photo_path):
+                        os.remove(photo_path)
+                except Exception as e:
+                    st.warning(f"Failed to delete photo {photo_file}: {e}")
     
     cursor.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
     conn.commit()
@@ -94,15 +140,20 @@ def get_entries_by_date_filter(conn, filter_option):
 def save_uploaded_photos(uploaded_files, entry_id):
     """Save uploaded photos and return list of filenames"""
     photo_filenames = []
+    photos_dir = get_photos_dir()
+    
     for i, uploaded_file in enumerate(uploaded_files):
         if uploaded_file is not None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"entry_{entry_id}_{timestamp}_{i}.{uploaded_file.name.split('.')[-1]}"
-            filepath = os.path.join('photos', filename)
+            filepath = os.path.join(photos_dir, filename)
             
-            with open(filepath, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            photo_filenames.append(filename)
+            try:
+                with open(filepath, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                photo_filenames.append(filename)
+            except Exception as e:
+                st.warning(f"Failed to save photo {filename}: {e}")
     
     return ','.join(photo_filenames)
 
@@ -284,7 +335,7 @@ def show_dashboard(conn):
                         if photo_files:
                             cols = st.columns(min(4, len(photo_files)))
                             for i, photo_file in enumerate(photo_files):
-                                photo_path = os.path.join('photos', photo_file)
+                                photo_path = os.path.join(get_photos_dir(), photo_file)
                                 if os.path.exists(photo_path):
                                     with cols[i % 4]:
                                         try:
@@ -368,7 +419,7 @@ def show_new_entry(conn):
                     # Display photos with delete checkboxes
                     cols = st.columns(min(3, len(photo_files)))
                     for i, photo_file in enumerate(photo_files):
-                        photo_path = os.path.join('photos', photo_file)
+                        photo_path = os.path.join(get_photos_dir(), photo_file)
                         if os.path.exists(photo_path):
                             with cols[i % 3]:
                                 try:
@@ -427,7 +478,7 @@ def show_new_entry(conn):
                         # Handle photo deletions first
                         if photos_to_delete:
                             for photo_file in photos_to_delete:
-                                photo_path = os.path.join('photos', photo_file)
+                                photo_path = os.path.join(get_photos_dir(), photo_file)
                                 if os.path.exists(photo_path):
                                     os.remove(photo_path)
                         
@@ -438,7 +489,7 @@ def show_new_entry(conn):
                                 old_photo_files = edit_entry[7].split(',')
                                 for photo_file in old_photo_files:
                                     if photo_file.strip():
-                                        photo_path = os.path.join('photos', photo_file.strip())
+                                        photo_path = os.path.join(get_photos_dir(), photo_file.strip())
                                         if os.path.exists(photo_path):
                                             os.remove(photo_path)
                             
@@ -564,7 +615,7 @@ def show_log(conn):
                         if photo_files:
                             cols = st.columns(min(4, len(photo_files)))
                             for i, photo_file in enumerate(photo_files):
-                                photo_path = os.path.join('photos', photo_file)
+                                photo_path = os.path.join(get_photos_dir(), photo_file)
                                 if os.path.exists(photo_path):
                                     with cols[i % 4]:
                                         try:
@@ -667,9 +718,13 @@ def show_export(conn):
                             conn.commit()
                             
                             import shutil
-                            if os.path.exists('photos'):
-                                shutil.rmtree('photos')
-                                os.makedirs('photos')
+                            photos_dir = get_photos_dir()
+                            try:
+                                if os.path.exists(photos_dir):
+                                    shutil.rmtree(photos_dir)
+                                    os.makedirs(photos_dir, exist_ok=True)
+                            except Exception as e:
+                                st.warning(f"Could not clear photos directory: {e}")
                             
                             st.session_state.confirm_clear = False
                             st.success("🧹 All entries and photos cleared successfully!")
