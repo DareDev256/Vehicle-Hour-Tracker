@@ -38,3 +38,4 @@ coverage/
 .vscode/
 .idea/
 *.swp
+# Auto-push test
