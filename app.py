@@ -378,7 +378,8 @@ def show_new_entry(conn):
                 "Express Wash",
                 "Paint Correction",
                 "Ceramic Coating",
-                "Maintenance Wash"
+                "Maintenance Wash",
+                "Customer Details"
             ]
             current_index = detail_types.index(edit_entry[2]) if edit_entry and edit_entry[2] in detail_types else 0
             detail_type = st.selectbox("🧽 Detail Type", detail_types, index=current_index)
