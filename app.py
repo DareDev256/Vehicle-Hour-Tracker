@@ -794,7 +794,7 @@ def main():
     
     # Route to appropriate function
     if nav_selection == "New Entry":
-        show_entry_form(conn)
+        show_new_entry(conn)
     elif nav_selection == "View Log":
         show_log(conn)
     elif nav_selection == "Export Data":

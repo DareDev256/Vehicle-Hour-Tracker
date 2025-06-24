@@ -1,7 +1,12 @@
 [server]
+port = 8501
 headless = true
-address = "0.0.0.0"
-port = 5000
+address = "localhost"
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
 
 [theme]
 base = "light"
