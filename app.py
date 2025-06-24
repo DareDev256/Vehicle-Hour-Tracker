@@ -9,24 +9,21 @@ import tempfile
 
 def get_photos_dir():
     """Get the photos directory path, cloud-compatible"""
-    db_dir = os.path.expanduser('~') if os.path.expanduser('~') != '~' else tempfile.gettempdir()
-    photos_dir = os.path.join(db_dir, 'photos')
+    photos_dir = 'photos'
     try:
         if not os.path.exists(photos_dir):
             os.makedirs(photos_dir, exist_ok=True)
         return photos_dir
     except (OSError, PermissionError):
-        # Fallback to temp directory
+        # Fallback to temp directory for Streamlit Cloud
         fallback_dir = os.path.join(tempfile.gettempdir(), 'streamlit_photos')
         os.makedirs(fallback_dir, exist_ok=True)
         return fallback_dir
 
 def init_db():
-    """Initialize SQLite database with persistent storage"""
-    # Use absolute path for Streamlit Cloud compatibility
-    import tempfile
-    db_dir = os.path.expanduser('~') if os.path.expanduser('~') != '~' else tempfile.gettempdir()
-    db_path = os.path.join(db_dir, 'detail_log.db')
+    """Initialize SQLite database with cloud compatibility"""
+    # Use current directory for Streamlit Cloud
+    db_path = 'detail_log.db'
     
     try:
         conn = sqlite3.connect(db_path, check_same_thread=False)
