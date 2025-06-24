@@ -6,16 +6,17 @@ Supports both SQLite (local) and Supabase PostgreSQL (cloud)
 import os
 import sqlite3
 import tempfile
+import json
 from datetime import datetime
 import streamlit as st
 
-# Try to import Supabase - gracefully handle if not available
+# Try to import requests and postgrest - gracefully handle if not available
 try:
-    from supabase import create_client, Client
+    import requests
+    from postgrest import APIClient
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    Client = None
 
 def get_database_config():
     """Get database configuration from environment or Streamlit secrets"""
@@ -49,24 +50,34 @@ def get_database_config():
     return config
 
 def get_supabase_client():
-    """Create and return Supabase client"""
+    """Create and return simple Supabase REST client"""
     config = get_database_config()
     if not config['use_supabase']:
         return None
     
     try:
-        supabase: Client = create_client(config['supabase_url'], config['supabase_key'])
-        return supabase
+        # Create simple REST client
+        client = {
+            'url': config['supabase_url'],
+            'key': config['supabase_key'],
+            'headers': {
+                'apikey': config['supabase_key'],
+                'Authorization': f"Bearer {config['supabase_key']}",
+                'Content-Type': 'application/json'
+            }
+        }
+        return client
     except Exception as e:
-        st.error(f"Failed to connect to Supabase: {e}")
+        st.error(f"Failed to create Supabase client: {e}")
         return None
 
-def init_supabase_schema(supabase: Client):
-    """Initialize Supabase database schema"""
+def init_supabase_schema(client):
+    """Check if Supabase database schema exists"""
     try:
-        # The table should be created in Supabase dashboard, but we can check if it exists
-        result = supabase.table('entries').select('id').limit(1).execute()
-        return True
+        # Simple test query to check if table exists
+        url = f"{client['url']}/rest/v1/entries?select=id&limit=1"
+        response = requests.get(url, headers=client['headers'])
+        return response.status_code == 200
     except Exception as e:
         st.error(f"Supabase schema check failed: {e}")
         st.info("Please create the 'entries' table in your Supabase dashboard with the following SQL:")

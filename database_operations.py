@@ -4,9 +4,16 @@ Database operations that work with both SQLite and Supabase
 
 import os
 import tempfile
+import json
 from datetime import datetime
 import streamlit as st
 from database_config import get_database_connection
+
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
 
 class DatabaseOperations:
     def __init__(self):
