@@ -743,5 +743,62 @@ def show_export(conn):
     except Exception as e:
         st.error(f"Error loading export data: {e}")
 
+def main():
+    """Main application entry point"""
+    # Initialize database
+    conn = init_db()
+    
+    # App title and header
+    st.set_page_config(
+        page_title="Vehicle Hour Tracker",
+        page_icon="🚗",
+        layout="wide"
+    )
+    
+    st.title("🚗 Vehicle Hour Tracker")
+    st.markdown("Track detailing hours and manage service records")
+    
+    # Handle delete confirmation
+    if st.session_state.get('delete_entry_id'):
+        entry_id = st.session_state.delete_entry_id
+        
+        st.warning(f"⚠️ **Confirm Deletion**")
+        st.write(f"Are you sure you want to permanently delete entry #{entry_id}?")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Yes, Delete", type="primary"):
+                if delete_entry(conn, entry_id):
+                    st.success("✅ Entry deleted successfully!")
+                    del st.session_state.delete_entry_id
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to delete entry")
+        
+        with col2:
+            if st.button("❌ Cancel"):
+                del st.session_state.delete_entry_id
+                st.rerun()
+        
+        st.stop()
+    
+    # Navigation
+    nav_selection = st.sidebar.selectbox(
+        "📍 Navigation",
+        ["New Entry", "View Log", "Export Data"],
+        index=["New Entry", "View Log", "Export Data"].index(st.session_state.get('nav_selection', 'New Entry'))
+    )
+    
+    # Update session state
+    st.session_state.nav_selection = nav_selection
+    
+    # Route to appropriate function
+    if nav_selection == "New Entry":
+        show_entry_form(conn)
+    elif nav_selection == "View Log":
+        show_log(conn)
+    elif nav_selection == "Export Data":
+        show_export(conn)
+
 if __name__ == "__main__":
     main()
